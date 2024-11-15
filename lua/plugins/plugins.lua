@@ -135,6 +135,36 @@ return {
     end,
   },
 
+  {
+    "ThePrimeagen/harpoon",
+    branch = "harpoon2",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    init = function()
+      local harpoon = require("harpoon")
+      local keymaps = vim.keymap
+      harpoon:setup()
+
+      keymaps.set("n", "<leader>a", function()
+        harpoon:list():add()
+      end)
+
+      keymaps.set("n", "<C-m>", function()
+        harpoon.ui:toggle_quick_menu(harpoon:list())
+      end)
+
+      keymaps.set("n", "<C-,>", function()
+        harpoon:list():prev()
+      end)
+
+      keymaps.set("n", "<C-.>", function()
+        harpoon:list():next()
+      end)
+    end,
+    keys = {
+
+    }
+  },
+
   -- the opts function can also be used to change the default opts:
   {
     "nvim-lualine/lualine.nvim",
