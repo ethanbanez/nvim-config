@@ -5,3 +5,5 @@
 
 vim.opt.cindent = true
 vim.opt.autoindent = true
+
+vim.opt.tabstop = 4

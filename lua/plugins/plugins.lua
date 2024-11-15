@@ -46,6 +46,10 @@ return {
   -- add tsserver and setup with typescript.nvim instead of lspconfig
   {
     "neovim/nvim-lspconfig",
+    init = function()
+      local lspconfig = require("lspconfig")
+      lspconfig.mesonlsp.setup {}
+    end
   },
 
 
@@ -148,20 +152,43 @@ return {
         harpoon:list():add()
       end)
 
-      keymaps.set("n", "<C-m>", function()
+      keymaps.set("n", "<CR>", function()
         harpoon.ui:toggle_quick_menu(harpoon:list())
       end)
 
-      keymaps.set("n", "<C-,>", function()
+      keymaps.set("n", "<C-n>", function()
         harpoon:list():prev()
       end)
 
-      keymaps.set("n", "<C-.>", function()
+      keymaps.set("n", "<C-m>", function()
         harpoon:list():next()
       end)
     end,
     keys = {
 
+    }
+  },
+
+  {
+    'rasulomaroff/cursor.nvim',
+    event = 'VeryLazy',
+    opts = {
+      -- Your options go here
+      overwrite_cursor = true,
+      cursors = {
+        {
+          mode = 'n-v-c',
+          blink = { wait = 75, default = 400 },
+          shape = 'block',
+
+        },
+        {
+          mode = 'i',
+          blink = { wait = 75, default = 400 },
+          shape = 'hor',
+          size = 40
+        }
+      }
     }
   },
 
