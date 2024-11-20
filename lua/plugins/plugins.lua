@@ -10,6 +10,14 @@
 return {
 
   {
+    dir = "~/programming/nvim-plugins/nvim-tasks/",
+    name = "nvim-tasks",
+    config = function()
+      require('nvim-tasks').greeting()
+    end
+  },
+
+  {
     "sainnhe/sonokai",
   },
 
@@ -48,7 +56,23 @@ return {
     "neovim/nvim-lspconfig",
     init = function()
       local lspconfig = require("lspconfig")
+      local utils = lspconfig.util
       lspconfig.mesonlsp.setup {}
+      lspconfig.clangd.setup({
+        cmd = { 'clangd', '--background-index', '--clang-tidy', '--log=verbose', '--pretty' },
+        filetypes = { 'c' },
+        root_dir = function(fname)
+          return utils.root_pattern(
+            '.clangd',
+            '.clang-tidy',
+            '.clang-format',
+            'compile_commands.json',
+            'build/compile_commands.json',
+            'compile_flags.txt',
+            'configure.ac'
+          )(fname) or utils.find_git_ancestor(fname)
+        end
+      })
     end
   },
 
@@ -216,6 +240,8 @@ return {
     "williamboman/mason.nvim",
     opts = {
       ensure_installed = {
+        "lua-language-server",
+        "clangd",
         "shellcheck",
         "shfmt",
       },
