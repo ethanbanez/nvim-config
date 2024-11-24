@@ -7,3 +7,8 @@ vim.opt.cindent = true
 vim.opt.autoindent = true
 
 vim.opt.tabstop = 4
+
+vim.filetype.add({
+  extension = {
+    h = 'c' }
+})
