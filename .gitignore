@@ -9,3 +9,4 @@ foo.*
 data
 lazy-lock.json
 lazyvim.json
+clangd/
