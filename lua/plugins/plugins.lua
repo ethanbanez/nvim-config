@@ -32,7 +32,21 @@ return {
     "stevearc/conform.nvim",
     dependencies = { "Koihik/LuaFormatter" },
     opts = function(_, opts)
-      opts.formatters_by_ft.lua = { "luaformatter" }
+      opts.formatters_by_ft.lua = { "stylua" }
+      opts.formatters_by_ft.c = { "clang-format", lsp_format = 'prefer'}
+    end
+  },
+
+  {
+    "nvim-telescope/telescope.nvim",
+    opts = function ()
+      return {
+        pickers = {
+          find_files = {
+            hidden = true
+          }
+        }
+      }
     end
   },
 
@@ -57,9 +71,13 @@ return {
     init = function()
       local lspconfig = require("lspconfig")
       local utils = lspconfig.util
+
+      package.path = package.path .. ';/Users/ethanbanez/.config/nvim/lua/plugins/clangd/cross-compiler.lua'
+      local cross_compiler_path = require('clangd.cross-compiler')
+
       lspconfig.mesonlsp.setup {}
       lspconfig.clangd.setup({
-        cmd = { 'clangd', '--background-index', '--clang-tidy', '--log=verbose', '--pretty' },
+        cmd = { 'clangd', '--background-index', '--query-driver=' .. cross_compiler_path, '--clang-tidy', '--log=verbose', '--pretty' },
         filetypes = { 'c' },
         root_dir = function(fname)
           return utils.root_pattern(
@@ -83,6 +101,10 @@ return {
         filesystem = {
           filtered_items = {
             hide_gitignored = false
+          },
+          follow_current_file = {
+            enabled = true,
+            leave_dirs_open = false,
           }
         }
       })
