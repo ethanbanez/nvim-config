@@ -22,11 +22,6 @@ return {
 
   {
     "stevearc/conform.nvim",
-    --dependencies = { "Koihik/LuaFormatter" },
-    opts = function(_, opts)
-      opts.formatters_by_ft.lua = { "stylua" }
-      opts.formatters_by_ft.c = { "clang-format", lsp_format = 'prefer'}
-    end
   },
 
   {
