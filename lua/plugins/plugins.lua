@@ -60,12 +60,17 @@ return {
   -- add tsserver and setup with typescript.nvim instead of lspconfig
   {
     "neovim/nvim-lspconfig",
+    dependencies = {"saghen/blink.cmp"},
     init = function()
       local lspconfig = require("lspconfig")
       local utils = lspconfig.util
 
-      package.path = package.path .. ';/Users/ethanbanez/.config/nvim/lua/plugins/clangd/cross-compiler.lua'
+      local oldpath = package.path
+      local clangd_compiler_path = ';' .. os.getenv('HOME') .. '/.config/nvim/lua/plugins/clangd/cross-compiler.lua;'
+      package.path = package.path .. clangd_compiler_path
+
       local cross_compiler_path = require('clangd.cross-compiler')
+      package.path = oldpath
 
       lspconfig.mesonlsp.setup {}
       lspconfig.clangd.setup({
@@ -83,6 +88,15 @@ return {
           )(fname) or vim.fs.dirname(vim.fs.find('.git', { path = fname, upward = true })[1])
         end
       })
+    end,
+    config = function(_, opts)
+        local lspconfig = require('lspconfig')
+        for server, config in pairs(opts.servers) do
+            -- passing config.capabilities to blink.cmp merges with the capabilities in your
+            -- `opts[server].capabilities, if you've defined it
+            config.capabilities = require('blink.cmp').get_lsp_capabilities(config.capabilities)
+            lspconfig[server].setup(config)
+        end
     end
   },
 
@@ -143,66 +157,19 @@ return {
 
   {
     "saghen/blink.cmp",
+    enabled = true,
+    build = "cargo build",
     opts = {
         keymap = {
-            preset = "super-tab"
+            preset = "super-tab",
+            ['<C-;'] = {'show', 'show_documentation', 'hide_documentation'}
         }
     }
   },
 
   {
     "hrsh7th/nvim-cmp",
-    opts = function ()
-        local cmp = require('cmp')
-        return {
-            auto_brackets = { "c", "cpp", },
-            mapping = cmp.mapping.preset.insert({
-                ["<Tab>"] = cmp.mapping(function(fallback)
-                    if cmp.visible() then
-                        -- You could replace select_next_item() with confirm({ select = true }) to get VS Code autocompletion behavior
-                        LazyVim.cmp.confirm({ select = true })
-                    else
-                        fallback()
-                    end
-                end, { "i", "s" }),
-
-                ["<C-Space>"] = cmp.mapping(function()
-                    cmp.mapping.complete()
-                end, { "i", "s" })
-            })
-        }
-    end
-    ---@param opts cmp.ConfigSchema
-    ---opts = function(_, opts)
-      ---local cmp = require("cmp")
-
-      ---opts.mapping = vim.tbl_extend("force", opts.mapping, {
-        ---["<Tab>"] = cmp.mapping(function(fallback)
-          ---if cmp.visible() then
-            -- You could replace select_next_item() with confirm({ select = true }) to get VS Code autocompletion behavior
-            ---cmp.confirm({ select = true })
-          ---else
-            ---fallback()
-          ---end
-        ---end, { "i", "s" }),
-
-        ---["<C-Space>"] = cmp.mapping(function()
-          ---cmp.complete()
-        ---end, { "i", "s" })
-      ---})
-
-      ---cmp.setup {
-        ---formatting = {
-          ---fields = { "kind", "abbr" },
-          ---format = function(_, vim_item)
-            ---vim_item.kind = cmp_kinds[vim_item.kind] or ""
-            ---return vim_item
-          ---end,
-        ---}
-      ---}
-
-      ---opts.auto_brackets = { "rust", "c", "cpp", "zig" }
-    ---end,
+    enabled = false,
   },
 
   {
