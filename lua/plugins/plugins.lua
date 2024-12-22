@@ -354,6 +354,7 @@ return {
                         dap_config.cwd = root_dir_find
                         dap_config.executable = exec_find
                         dap_config.configFiles = { root_dir_find() .. "/openocd/debug.cfg" }
+                        last_configured_root = root_dir
                     end
                     dap.continue()
                 end,
