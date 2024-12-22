@@ -349,11 +349,13 @@ return {
                         return
                     end
                     if root_dir ~= last_configured_root then
+                        print("new project")
+                        local exec = exec_find()
                         ---@class dap.Configuration
                         local dap_config = dap.configurations.c[1]
-                        dap_config.cwd = root_dir_find
-                        dap_config.executable = exec_find
-                        dap_config.configFiles = { root_dir_find() .. "/openocd/debug.cfg" }
+                        dap_config.cwd = root_dir
+                        dap_config.executable = exec
+                        dap_config.configFiles = { root_dir .. "/openocd/debug.cfg" }
                         last_configured_root = root_dir
                     end
                     dap.continue()
@@ -542,6 +544,9 @@ return {
             end
             dap.listeners.before.launch.dapui_config = function()
                 dapui.open()
+            end
+            dap.listeners.before.disconnect.dapui_config = function()
+                dapui.close()
             end
             dap.listeners.before.event_terminated.dapui_config = function()
                 dapui.close()
