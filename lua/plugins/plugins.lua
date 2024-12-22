@@ -21,6 +21,12 @@ return {
 
     {
         "stevearc/conform.nvim",
+        opts = {
+            formatters_by_ft = {
+                c = { "clang_format", lsp_format = "prefer" },
+                cpp = { "clang_format", lsp_format = "prefer" },
+            },
+        },
     },
 
     {
@@ -76,6 +82,9 @@ return {
                     "--clang-tidy",
                     "--log=verbose",
                     "--pretty",
+                    "--use-dirty-headers",
+                    "--compile_args_from=filesystem",
+                    "--all-scopes-completion",
                 },
                 filetypes = { "c" },
                 root_dir = function(fname)
@@ -84,7 +93,6 @@ return {
                         ".clang-tidy",
                         ".clang-format",
                         "compile_commands.json",
-                        "build/compile_commands.json",
                         "compile_flags.txt",
                         "configure.ac"
                     )(fname) or vim.fs.dirname(
@@ -94,6 +102,14 @@ return {
             })
         end,
         config = function(_, opts)
+            LazyVim.lsp.on_attach(function(client, buffer)
+                require("lazyvim.plugins.lsp.keymaps").get()
+                require("lazyvim.plugins.lsp.keymaps").on_attach(client, buffer)
+            end)
+
+            LazyVim.lsp.setup()
+            LazyVim.lsp.on_dynamic_capability(require("lazyvim.plugins.lsp.keymaps").on_attach)
+
             local lspconfig = require("lspconfig")
             for server, config in pairs(opts.servers) do
                 -- passing config.capabilities to blink.cmp merges with the capabilities in your
@@ -128,6 +144,7 @@ return {
         "nvim-treesitter/nvim-treesitter",
         opts = {
             ensure_installed = {
+                "asm",
                 "c",
                 "bash",
                 "lua",
@@ -160,16 +177,30 @@ return {
     },
 
     {
-        "saghen/blink.cmp",
+        dir = "/home/biggestskittle/programming/blink.cmp",
+        name = "blink.cmp",
         enabled = true,
-        build = "cargo build",
+        build = "cargo build --release",
         opts = {
             keymap = {
                 preset = "super-tab",
-                ["<C-;"] = { "show", "show_documentation", "hide_documentation" },
+                ["<C-Space>"] = { "show", "hide", "show_documentation", "hide_documentation" },
             },
         },
     },
+
+    --{
+    --"saghen/blink.cmp",
+    --version = "",
+    --enabled = true,
+    --build = "cargo build",
+    --opts = {
+    --keymap = {
+    --preset = "super-tab",
+    --["<C-Space>"] = { "show", "hide", "show_documentation", "hide_documentation" },
+    --},
+    --},
+    --},
 
     {
         "hrsh7th/nvim-cmp",
@@ -267,5 +298,235 @@ return {
                 "shfmt",
             },
         },
+    },
+
+    {
+        "mfussenegger/nvim-dap",
+        event = "VeryLazy",
+        dependencies = {
+            "rcarriga/nvim-dap-ui",
+            -- virtual text for the debugger
+            {
+                "theHamsta/nvim-dap-virtual-text",
+                opts = {},
+            },
+        },
+
+        keys = {
+            {
+                "<leader>dB",
+                function()
+                    require("dap").set_breakpoint(vim.fn.input("Breakpoint condition: "))
+                end,
+                desc = "Breakpoint Condition",
+            },
+            {
+                "<leader>db",
+                function()
+                    require("dap").toggle_breakpoint()
+                end,
+                desc = "Toggle Breakpoint",
+            },
+            {
+                "<leader>dc",
+                function()
+                    require("dap").continue()
+                end,
+                desc = "Run/Continue",
+            },
+            {
+                "<leader>da",
+                function()
+                    require("dap").continue({ before = get_args })
+                end,
+                desc = "Run with Args",
+            },
+            {
+                "<leader>dC",
+                function()
+                    require("dap").run_to_cursor()
+                end,
+                desc = "Run to Cursor",
+            },
+            {
+                "<leader>dg",
+                function()
+                    require("dap").goto_()
+                end,
+                desc = "Go to Line (No Execute)",
+            },
+            {
+                "<leader>di",
+                function()
+                    require("dap").step_into()
+                end,
+                desc = "Step Into",
+            },
+            {
+                "<leader>dj",
+                function()
+                    require("dap").down()
+                end,
+                desc = "Down",
+            },
+            {
+                "<leader>dk",
+                function()
+                    require("dap").up()
+                end,
+                desc = "Up",
+            },
+            {
+                "<leader>dl",
+                function()
+                    require("dap").run_last()
+                end,
+                desc = "Run Last",
+            },
+            {
+                "<leader>do",
+                function()
+                    require("dap").step_out()
+                end,
+                desc = "Step Out",
+            },
+            {
+                "<leader>dO",
+                function()
+                    require("dap").step_over()
+                end,
+                desc = "Step Over",
+            },
+            {
+                "<leader>dP",
+                function()
+                    require("dap").pause()
+                end,
+                desc = "Pause",
+            },
+            {
+                "<leader>dr",
+                function()
+                    require("dap").repl.toggle()
+                end,
+                desc = "Toggle REPL",
+            },
+            {
+                "<leader>ds",
+                function()
+                    require("dap").session()
+                end,
+                desc = "Session",
+            },
+            {
+                "<leader>dt",
+                function()
+                    require("dap").terminate()
+                end,
+                desc = "Terminate",
+            },
+            {
+                "<leader>dw",
+                function()
+                    require("dap.ui.widgets").hover()
+                end,
+                desc = "Widgets",
+            },
+        },
+
+        config = function()
+            if LazyVim.has("mason-nvim-dap.nvim") then
+                require("mason-nvim-dap").setup(LazyVim.opts("mason-nvim-dap.nvim"))
+            end
+
+            vim.api.nvim_set_hl(0, "DapStoppedLine", { default = true, link = "Visual" })
+
+            for name, sign in pairs(LazyVim.config.icons.dap) do
+                sign = type(sign) == "table" and sign or { sign }
+                vim.fn.sign_define(
+                    "Dap" .. name,
+                    { text = sign[1], texthl = sign[2] or "DiagnosticInfo", linehl = sign[3], numhl = sign[3] }
+                )
+            end
+
+            local dap = require("dap")
+            --dap.adapters.gdb = {
+            --type = "executable",
+            --command = "gdb",
+            --args = {}, -- set the target? what else??
+            --}
+
+            --dap.adapters["cortex-debug"] = {
+            --type = "executable",
+            ----command = "gdb",
+            --command = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+            --args = { "--eval-command", "set print pretty on" }, -- set the target? what else??
+            --}
+            --
+            local root_dir
+            LazyVim.lsp.on_attach(function(client, buffer)
+                if client.name ~= "clangd" then
+                    return
+                end
+
+                root_dir = vim.fs.root(0, "compile_commands.json")
+
+                local exec_find = function()
+                    return vim.fn.input("Path to executable: ", root_dir .. "/", "file")
+                end
+
+                local exec = exec_find()
+
+                dap.configurations.c = {
+                    {
+                        name = "debugging with OpenOCD",
+                        type = "cortex-debug",
+                        request = "launch",
+                        servertype = "openocd",
+                        serverpath = "openocd",
+                        gdbPath = "arm-none-eabi-gdb",
+                        toolchainPath = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/",
+                        toolchainPrefix = "arm-none-eabi",
+                        runToEntryPoint = "Reset_Handler",
+                        swoConfig = { enabled = false },
+                        showDevDebugOutput = true,
+                        gdbTarget = "localhost:3333",
+                        cwd = root_dir,
+                        executable = exec,
+                        configFiles = { root_dir .. "/openocd/debug.cfg" },
+                        rttConfig = {
+                            address = "auto",
+                            decoders = {
+                                {
+                                    label = "RTT:0",
+                                    port = 0,
+                                    type = "console",
+                                },
+                            },
+                            enabled = false,
+                        },
+                    },
+                }
+            end)
+        end,
+        opts = {},
+    },
+    {
+        "jedrzejboczar/nvim-dap-cortex-debug",
+        dependencies = { "mfussenegger/nvim-dap" },
+        config = function()
+            local dap_cortex_debug = require("dap-cortex-debug")
+            LazyVim.lsp.on_attach(function(client, buffer)
+                if client.name == "clangd" then
+                    dap_cortex_debug.setup({
+                        debug = false,
+                        extension_path = "/home/biggestskittle/Downloads/cortex-debug/",
+                        lib_extension = "",
+                        node_path = "node",
+                        dap_vscode_filetypes = { "c" },
+                    })
+                end
+            end)
+        end,
     },
 }
