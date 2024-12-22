@@ -6,6 +6,17 @@
 -- * add extra plugins
 -- * disable/enabled LazyVim plugins
 -- * override the configuration of LazyVim plugins
+
+local last_configured_root = ""
+
+local root_dir_find = function()
+    return vim.fs.root(0, "compile_commands.json")
+end
+
+local exec_find = function()
+    return vim.fn.input("Path to executable: ", root_dir_find() .. "/", "file")
+end
+
 return {
 
     {
@@ -330,7 +341,21 @@ return {
             {
                 "<leader>dc",
                 function()
-                    require("dap").continue()
+                    local dap = require("dap")
+                    local root_dir = root_dir_find()
+                    -- this is only configured when trying to debug a new project
+                    if root_dir == nil then
+                        print("invalid project")
+                        return
+                    end
+                    if root_dir ~= last_configured_root then
+                        ---@class dap.Configuration
+                        local dap_config = dap.configurations.c[1]
+                        dap_config.cwd = root_dir_find
+                        dap_config.executable = exec_find
+                        dap_config.configFiles = { root_dir_find() .. "/openocd/debug.cfg" }
+                    end
+                    dap.continue()
                 end,
                 desc = "Run/Continue",
             },
@@ -450,83 +475,79 @@ return {
             end
 
             local dap = require("dap")
-            --dap.adapters.gdb = {
-            --type = "executable",
-            --command = "gdb",
-            --args = {}, -- set the target? what else??
-            --}
 
-            --dap.adapters["cortex-debug"] = {
-            --type = "executable",
-            ----command = "gdb",
-            --command = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
-            --args = { "--eval-command", "set print pretty on" }, -- set the target? what else??
-            --}
-            --
-            local root_dir
-            LazyVim.lsp.on_attach(function(client, buffer)
-                if client.name ~= "clangd" then
-                    return
-                end
-
-                root_dir = vim.fs.root(0, "compile_commands.json")
-
-                local exec_find = function()
-                    return vim.fn.input("Path to executable: ", root_dir .. "/", "file")
-                end
-
-                local exec = exec_find()
-
-                dap.configurations.c = {
-                    {
-                        name = "debugging with OpenOCD",
-                        type = "cortex-debug",
-                        request = "launch",
-                        servertype = "openocd",
-                        serverpath = "openocd",
-                        gdbPath = "arm-none-eabi-gdb",
-                        toolchainPath = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/",
-                        toolchainPrefix = "arm-none-eabi",
-                        runToEntryPoint = "Reset_Handler",
-                        swoConfig = { enabled = false },
-                        showDevDebugOutput = true,
-                        gdbTarget = "localhost:3333",
-                        cwd = root_dir,
-                        executable = exec,
-                        configFiles = { root_dir .. "/openocd/debug.cfg" },
-                        rttConfig = {
-                            address = "auto",
-                            decoders = {
-                                {
-                                    label = "RTT:0",
-                                    port = 0,
-                                    type = "console",
-                                },
+            -- the important parts of the configration are configured on invocation of gdb
+            dap.configurations.c = {
+                {
+                    name = "debugging with OpenOCD",
+                    type = "cortex-debug",
+                    request = "launch",
+                    servertype = "openocd",
+                    serverpath = "openocd",
+                    gdbPath = "arm-none-eabi-gdb",
+                    toolchainPath = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/",
+                    toolchainPrefix = "arm-none-eabi",
+                    runToEntryPoint = "Reset_Handler",
+                    swoConfig = { enabled = false },
+                    showDevDebugOutput = true,
+                    gdbTarget = "localhost:3333",
+                    rttConfig = {
+                        address = "auto",
+                        decoders = {
+                            {
+                                label = "RTT:0",
+                                port = 0,
+                                type = "console",
                             },
-                            enabled = false,
                         },
+                        enabled = true,
                     },
-                }
-            end)
+                },
+            }
         end,
         opts = {},
     },
+
     {
         "jedrzejboczar/nvim-dap-cortex-debug",
-        dependencies = { "mfussenegger/nvim-dap" },
+        dependencies = { "mfussenegger/nvim-dap", "rcarriga/nvim-dap-ui" },
         config = function()
             local dap_cortex_debug = require("dap-cortex-debug")
-            LazyVim.lsp.on_attach(function(client, buffer)
-                if client.name == "clangd" then
-                    dap_cortex_debug.setup({
-                        debug = false,
-                        extension_path = "/home/biggestskittle/Downloads/cortex-debug/",
-                        lib_extension = "",
-                        node_path = "node",
-                        dap_vscode_filetypes = { "c" },
-                    })
-                end
-            end)
+            dap_cortex_debug.setup({
+                debug = false,
+                extension_path = "/home/biggestskittle/Downloads/cortex-debug/",
+                lib_extension = "",
+                node_path = "node",
+                dap_vscode_filetypes = { "c" },
+                dapui_rtt = true,
+                rtt = {
+                    buftype = "Terminal",
+                },
+            })
+        end,
+    },
+
+    {
+
+        "rcarriga/nvim-dap-ui",
+        dependencies = { "nvim-neotest/nvim-nio" },
+        init = function()
+            require("dapui").setup()
+        end,
+        config = function()
+            local dap, dapui = require("dap"), require("dapui")
+            dap.listeners.before.attach.dapui_config = function()
+                dapui.open()
+            end
+            dap.listeners.before.launch.dapui_config = function()
+                dapui.open()
+            end
+            dap.listeners.before.event_terminated.dapui_config = function()
+                dapui.close()
+            end
+            dap.listeners.before.event_exited.dapui_config = function()
+                dapui.close()
+            end
         end,
     },
 }
