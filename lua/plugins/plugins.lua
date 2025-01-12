@@ -90,19 +90,24 @@ return {
                     "clangd",
                     "--background-index",
                     "--query-driver=" .. cross_compiler_path,
+                    "--compile_args_from=filesystem",
                     "--clang-tidy",
                     "--log=verbose",
                     "--pretty",
                     "--use-dirty-headers",
-                    "--compile_args_from=filesystem",
+                    "--header-insertion=iwyu",
                     "--all-scopes-completion",
+                    "--function-arg-placeholders",
+                    "--completion-style=detailed",
+                    "--malloc-trim",
                 },
-                filetypes = { "c" },
+                filetypes = { "c", "cpp" },
                 root_dir = function(fname)
                     return utils.root_pattern(
                         ".clangd",
                         ".clang-tidy",
                         ".clang-format",
+                        "build/compile_commands.json",
                         "compile_commands.json",
                         "compile_flags.txt",
                         "configure.ac"
@@ -132,6 +137,15 @@ return {
     },
 
     {
+        "neocmakelsp/neocmakelsp",
+        dependencies = { "neovim/nvim-lspconfig" },
+        init = function()
+            local lspconfig = require("lspconfig")
+            lspconfig.neocmake.setup({})
+        end,
+    },
+
+    {
         "nvim-neo-tree/neo-tree.nvim",
         opts = {
             filesystem = {
@@ -157,6 +171,7 @@ return {
             ensure_installed = {
                 "asm",
                 "c",
+                "cpp",
                 "bash",
                 "lua",
                 "vim",
@@ -348,19 +363,58 @@ return {
                         print("invalid project")
                         return
                     end
+
                     if root_dir ~= last_configured_root then
-                        print("new project")
-                        local exec = exec_find()
+                        print("configuring project")
+                        local oldpath = package.path
+                        package.path = package.path .. ";" .. root_dir .. "/.debug-configuration/debug-config.lua;"
+
                         ---@class dap.Configuration
-                        local dap_config = dap.configurations.c[1]
-                        dap_config.cwd = root_dir
-                        dap_config.executable = exec
-                        dap_config.configFiles = { root_dir .. "/openocd/debug.cfg" }
+                        local debug_config = require("debug-config")
+                        local exec = exec_find()
+
+                        print(debug_config[1].type)
+
+                        if debug_config[1].type == "openocd" then
+                            print("openocd configuration")
+                            for _, x in pairs(debug_config) do
+                                x.cwd = root_dir
+                                x.executable = exec
+                                x.configFiles = { root_dir .. "/openocd/debug.cfg" }
+                            end
+                        elseif debug_config[1].type == "cppdbg" then
+                            print("cppdbg configuration")
+                            for _, x in pairs(debug_config) do
+                                x.program = exec
+                                x.cwd = root_dir
+                            end
+                        end
+
+                        dap.configurations.c = debug_config
+                        dap.configurations.cpp = debug_config
+
                         last_configured_root = root_dir
+                        package.path = oldpath
                     end
                     dap.continue()
                 end,
                 desc = "Run/Continue",
+            },
+            {
+                "<F1>",
+                function()
+                    require("dap").continue()
+                end,
+                desc = "Continue",
+            },
+            {
+                "<leader>dR",
+                function()
+                    last_configured_root = ""
+                    require("dap").configurations.c = nil
+                    print("Reset debug configuration")
+                end,
+                desc = "reload debug configuration",
             },
             {
                 "<leader>da",
@@ -384,21 +438,21 @@ return {
                 desc = "Go to Line (No Execute)",
             },
             {
-                "<leader>di",
+                "<F2>",
                 function()
                     require("dap").step_into()
                 end,
                 desc = "Step Into",
             },
             {
-                "<leader>dj",
+                "<F8>",
                 function()
                     require("dap").down()
                 end,
                 desc = "Down",
             },
             {
-                "<leader>dk",
+                "<F7>",
                 function()
                     require("dap").up()
                 end,
@@ -412,14 +466,14 @@ return {
                 desc = "Run Last",
             },
             {
-                "<leader>do",
+                "<F4>",
                 function()
                     require("dap").step_out()
                 end,
                 desc = "Step Out",
             },
             {
-                "<leader>dO",
+                "<F3>",
                 function()
                     require("dap").step_over()
                 end,
@@ -449,9 +503,24 @@ return {
             {
                 "<leader>dt",
                 function()
+                    require("dapui").close()
                     require("dap").terminate()
                 end,
                 desc = "Terminate",
+            },
+            {
+                "<leader>df",
+                function()
+                    require("dap").focus_frame()()
+                end,
+                desc = "Frame focus",
+            },
+            {
+                "<leader>dvp",
+                function()
+                    require("dap.ui.widgets").preview()
+                end,
+                desc = "Frame focus",
             },
             {
                 "<leader>dw",
@@ -477,35 +546,16 @@ return {
                 )
             end
 
-            local dap = require("dap")
+            -- migrated configuration to be taken directly from the project repo.
+            -- configured when running a debug session for the first time
 
-            -- the important parts of the configration are configured on invocation of gdb
-            dap.configurations.c = {
-                {
-                    name = "debugging with OpenOCD",
-                    type = "cortex-debug",
-                    request = "launch",
-                    servertype = "openocd",
-                    serverpath = "openocd",
-                    gdbPath = "arm-none-eabi-gdb",
-                    toolchainPath = "/home/biggestskittle/embedded-toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/",
-                    toolchainPrefix = "arm-none-eabi",
-                    runToEntryPoint = "Reset_Handler",
-                    swoConfig = { enabled = false },
-                    showDevDebugOutput = true,
-                    gdbTarget = "localhost:3333",
-                    rttConfig = {
-                        address = "auto",
-                        decoders = {
-                            {
-                                label = "RTT:0",
-                                port = 0,
-                                type = "console",
-                            },
-                        },
-                        enabled = true,
-                    },
-                },
+            -- configure one for local applications being debugged with gdb
+            local dap = require("dap")
+            dap.adapters.cppdbg = {
+                id = "cppdbg",
+                type = "executable",
+                command = os.getenv("HOME")
+                    .. "/Downloads/cpptools/cpptools-linux-x64/extension/debugAdapters/bin/OpenDebugAD7",
             }
         end,
         opts = {},
@@ -521,8 +571,8 @@ return {
                 extension_path = "/home/biggestskittle/Downloads/cortex-debug/",
                 lib_extension = "",
                 node_path = "node",
-                dap_vscode_filetypes = { "c" },
-                dapui_rtt = true,
+                dap_vscode_filetypes = { "c", "cpp" },
+                dapui_rtt = false,
                 rtt = {
                     buftype = "Terminal",
                 },
@@ -546,9 +596,6 @@ return {
                 dapui.open()
             end
             dap.listeners.before.disconnect.dapui_config = function()
-                dapui.close()
-            end
-            dap.listeners.before.event_terminated.dapui_config = function()
                 dapui.close()
             end
             dap.listeners.before.event_exited.dapui_config = function()
