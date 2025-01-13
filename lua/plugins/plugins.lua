@@ -203,7 +203,7 @@ return {
     },
 
     {
-        dir = "/home/biggestskittle/programming/blink.cmp",
+        dir = os.getenv("HOME") .. "/programming/blink.cmp",
         name = "blink.cmp",
         enabled = true,
         build = "cargo build --release",
